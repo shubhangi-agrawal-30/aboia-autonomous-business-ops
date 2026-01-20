@@ -47,8 +47,11 @@ def main():
     # Step 3: Run Agent 3 (Reasoning)
     # -------------------------
     reasoning_agent = ReasoningAgent(llm_provider="mock")
-
     reasoning_output = reasoning_agent.run(anomalies)
+    
+    print("\n=== AGENT 3 OUTPUT (Reasoning) ===")
+    for k, v in reasoning_output.items():
+        print(f"{k}: {v}")
 
     # -------------------------
     # Step 4: Run Agent 4 (Planning)

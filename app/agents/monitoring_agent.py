@@ -132,7 +132,7 @@ class MonitoringAgent:
             all_anomalies.extend(
                 self.detect_pct_change_anomalies(df, metric)
             )
-
+    
         return {
             "anomalies": all_anomalies,
             "metrics_df": df,

@@ -34,7 +34,7 @@ class ReasoningAgent:
         for anomaly in anomalies:
             clean = {}
 
-            for key, value in clean.items():
+            for key, value in anomaly.items():
                 # Convert date to string
                 if hasattr(value, "isoformat"):
                     clean[key] = value.isoformat()
@@ -77,7 +77,7 @@ class ReasoningAgent:
         Deterministic reasoning logic for local testing.
         """
         metrics = {a["metric"] for a in anomalies}
-
+        print(metrics)
         if "visits" in metrics:
             root_cause = (
                 "Sudden drop in visits suggests a traffic acquisition issue "
@@ -132,7 +132,7 @@ class ReasoningAgent:
             return {
                 "root_cause": "No significant anomalies detected.",
                 "business_impact": "Business metrics are stable.",
-                "risk_level": "low",
+                "risk_level": "None",
             }
 
         prompt = self._build_prompt(anomalies)

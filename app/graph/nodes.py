@@ -24,7 +24,7 @@ def monitoring_node(state: AgentState) -> AgentState:
 
 
 def reasoning_node(state: AgentState) -> AgentState:
-    agent = ReasoningAgent(llm_provider="mock")
+    agent = ReasoningAgent(llm_provider="ollama")
     state["reasoning"] = agent.run(state["anomalies"])
     return state
 

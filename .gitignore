@@ -27,3 +27,6 @@ debug_output/
 # OS
 .DS_Store
 Thumbs.db
+
+# PDF
+*.pdf

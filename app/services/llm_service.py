@@ -1,79 +1,270 @@
+import os
 import json
-import ollama
 import re
+import time
+from datetime import datetime
+from typing import Dict
 
-def extract_json(text: str) -> dict:
-    """
-    Extract JSON object from LLM response text.
-    """
-    try:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-    except Exception:
-        pass
+from google import genai
+from dotenv import load_dotenv
 
-    return None
+from app.services.path_config import DEBUG_DIR
+from app.services.logger import logger
 
-def make_json_serializable(obj):
-    """
-    Recursively convert pandas/numpy types into JSON serializable types.
-    """
-    import pandas as pd
-    import numpy as np
+load_dotenv()
 
-    if isinstance(obj, dict):
-        return {k: make_json_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [make_json_serializable(i) for i in obj]
-    elif isinstance(obj, (pd.Timestamp,)):
-        return obj.isoformat()
-    elif isinstance(obj, (np.integer,)):
-        return int(obj)
-    elif isinstance(obj, (np.floating,)):
-        return float(obj)
-    else:
-        return obj
 
 class LLMService:
-    def __init__(self, model: str = "llama3"):
-        self.model = model
+    """
+    Governance-Aware LLM Wrapper (Gemini)
 
-    def generate_reasoning(self, anomaly_summary: dict) -> dict:
-        clean_anomalies = make_json_serializable(anomaly_summary)
-        prompt = f"""
-You are a senior business intelligence analyst.
+    This service is responsible for safely generating business reasoning
+    from structured anomaly summaries.
 
-Given the following KPI anomalies detected in an e-commerce system,
-analyze them together and explain the most likely business issue.
+    Core Design Principles:
+    - Deterministic input (structured anomaly summary only)
+    - Controlled prompt construction (no external hallucinated context)
+    - Strict JSON contract enforcement
+    - Safe fallback behavior (never break pipeline)
+    - Full debug logging for auditability
 
-Anomaly Summary:
-{json.dumps(make_json_serializable(clean_anomalies), indent=2)}
+    The LLM is NOT trusted blindly.
+    Downstream layers (ReasoningValidator + Planner) evaluate and govern its output.
+    """
 
-Respond ONLY in this JSON format:
+    def __init__(self, timeout: int = 60):
+        """
+        Initialize Gemini client and safety parameters.
 
-{{
-  "summary": "...",
-  "possible_causes": ["...", "..."],
-  "risk_level": "low | medium | high"
-}}
-"""
+        - Validates presence of GEMINI_API_KEY
+        - Uses environment-configured model (default: gemini-2.5-flash)
+        - Enables retry logic with exponential backoff
+        - Enables structured debug logging
+        """
 
-        response = ollama.chat(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not set in environment")
+
+        self.model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.timeout = timeout
+        self.max_retries = 2  # 2 retries = 3 total attempts
+
+        self.genai_client = genai.Client(
+            api_key=api_key,
+            http_options={"api_version": "v1"},
         )
 
-        content = response["message"]["content"]
+        self.debug_file = DEBUG_DIR / "llm_calls.ndjson"
 
-        # Try parsing JSON safely
-        parsed = extract_json(content)
+    # ------------------------------------------------------------
+    # Utility: Extract first JSON block from model response
+    # ------------------------------------------------------------
+    def _extract_json(self, text: str) -> Dict | None:
+        """
+        Extract the first JSON object from raw LLM text.
 
-        if parsed:
-            return parsed
+        This prevents:
+        - Markdown wrapping
+        - Commentary before/after JSON
+        - Multi-block outputs
 
-        return {
-            "summary": content,
-            "possible_causes": [],
-            "risk_level": "None",
+        Returns parsed dict or None.
+        """
+        try:
+            match = re.search(r"\{.*\}", text, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+        except Exception:
+            return None
+        return None
+
+    # ------------------------------------------------------------
+    # Utility: Append structured debug record
+    # ------------------------------------------------------------
+    def _append_debug_record(self, record: dict):
+        """
+        Append structured LLM interaction logs.
+
+        This enables:
+        - Full audit trail
+        - Governance traceability
+        - Debugging reasoning drift
+        """
+        try:
+            with open(self.debug_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception as e:
+            logger.warning(f"Failed to write LLM debug record: {e}")
+
+    # ------------------------------------------------------------
+    # Main reasoning generator
+    # ------------------------------------------------------------
+    def generate_reasoning(
+        self,
+        summary: Dict,
+        anomaly_confidence: int,
+        require_analytical_output: bool = False,
+    ) -> Dict:
+        """
+        Generate structured business reasoning for a single anomaly episode.
+
+        Parameters:
+        - summary: Deterministic anomaly summary generated by ReasoningAgent
+        - anomaly_confidence: Statistical anomaly strength (0–100)
+        - require_analytical_output: If True, enforces stricter analytical prompt
+
+        Returns:
+        Structured reasoning dict:
+        {
+            root_cause,
+            business_impact,
+            risk_level,
+            anomaly_confidence,
+            reasoning_confidence
         }
+
+        This method NEVER raises — it always returns a safe fallback.
+        """
+
+        logger.info(">>> ENTER LLMService.generate_reasoning")
+
+        # --------------------------------------------------------
+        # Analytical enforcement block (optional governance flag)
+        # --------------------------------------------------------
+        analytical_requirement = ""
+        if require_analytical_output:
+            analytical_requirement = """
+            CRITICAL REQUIREMENTS:
+            - You MUST reference specific affected metrics.
+            - You MUST mention direction (increase or decrease).
+            - If pct_change_vs_7d exists, reference approximate % magnitude.
+            - You MUST logically justify risk level using anomaly strength.
+            - Avoid generic explanations.
+            """
+
+        # --------------------------------------------------------
+        # Controlled prompt construction
+        # --------------------------------------------------------
+        prompt = f"""
+        You are a senior Business Operations Analyst for an e-commerce platform.
+
+        ================= ANOMALY SUMMARY =================
+        {json.dumps(summary, indent=2)}
+
+        ================= STRUCTURAL ANOMALY CONFIDENCE =================
+        Statistical anomaly strength: {anomaly_confidence}/100.
+
+        {analytical_requirement}
+
+        INSTRUCTIONS:
+        - Use ONLY the information provided.
+        - Do NOT invent external events.
+        - Keep explanation concise but analytical.
+        - For `confidence_score`, do NOT simply copy the statistical anomaly strength. Rate purely how confident you are in your logical root cause.
+        - Risk levels:
+            HIGH → Strong multi-metric degradation or severe drop.
+            MEDIUM → Noticeable but limited impact.
+            LOW → Minor or isolated fluctuation.
+
+        Return STRICT JSON only:
+
+        {{
+            "root_cause": "<metric-grounded business cause>",
+            "business_impact": "<brief analytical explanation>",
+            "risk_level": "low | medium | high",
+            "confidence_score": <integer 0-100>
+        }}
+        """
+
+        # Log input metadata (not full prompt to reduce noise)
+        self._append_debug_record({
+            "timestamp": datetime.utcnow().isoformat(),
+            "stage": "input",
+            "model": self.model,
+            "anomaly_confidence": anomaly_confidence,
+            "prompt_length": len(prompt),
+        })
+
+        attempt = 0
+
+        # --------------------------------------------------------
+        # Safe retry loop
+        # --------------------------------------------------------
+        while attempt <= self.max_retries:
+            try:
+                response = self.genai_client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                )
+
+                raw_text = response.text
+
+                self._append_debug_record({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "stage": f"raw_output_attempt_{attempt}",
+                    "text": raw_text,
+                })
+
+                parsed = self._extract_json(raw_text)
+
+                if parsed:
+                    raw_conf = parsed.get("confidence_score", 50)
+                    try:
+                        cleaned_conf = int(float(str(raw_conf).replace("%", "").strip()))
+                        reasoning_confidence = max(0, min(100, cleaned_conf))
+                    except (ValueError, TypeError):
+                        reasoning_confidence = 50
+
+                    structured_reasoning = {
+                        "root_cause": parsed.get("root_cause", "Unknown"),
+                        "business_impact": parsed.get("business_impact", ""),
+                        "risk_level": parsed.get("risk_level", "medium").lower(),
+                        "anomaly_confidence": anomaly_confidence,
+                        "reasoning_confidence": reasoning_confidence,
+                    }
+
+                    self._append_debug_record({
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "stage": "parsed_output",
+                        "payload": structured_reasoning,
+                    })
+
+                    logger.info("<<< EXIT LLMService.generate_reasoning (success)")
+                    return structured_reasoning
+
+                # Non-JSON output → treat as soft failure
+                logger.warning("LLM returned non-JSON output")
+
+                fallback = {
+                    "root_cause": raw_text[:500],
+                    "business_impact": "",
+                    "risk_level": "medium",
+                    "anomaly_confidence": anomaly_confidence,
+                    "reasoning_confidence": 0,
+                }
+
+                return fallback
+
+            except Exception as e:
+                logger.error(f"LLM attempt {attempt} failed: {e}")
+
+                if attempt == self.max_retries:
+                    break
+
+                time.sleep(2 ** attempt)
+                attempt += 1
+
+        # --------------------------------------------------------
+        # Final hard fallback
+        # --------------------------------------------------------
+        fallback = {
+            "root_cause": "LLM unavailable after retries",
+            "business_impact": "Automated reasoning could not be generated.",
+            "risk_level": "medium",
+            "anomaly_confidence": anomaly_confidence,
+            "reasoning_confidence": 0,
+        }
+
+        logger.info("<<< EXIT LLMService.generate_reasoning (final fallback)")
+        return fallback

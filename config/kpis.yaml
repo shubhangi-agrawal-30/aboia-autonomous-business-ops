@@ -1,0 +1,29 @@
+kpis:
+  orders:
+    column: order_id
+    agg: nunique
+
+  unique_users:
+    column: customer_unique_id
+    agg: nunique
+
+  items_sold:
+    column: order_id
+    agg: count
+
+  gmv:
+    column: gmv
+    agg: sum
+
+derived_kpis:
+  avg_items_per_order:
+    formula: items_sold / orders
+
+  conversion_rate:
+    formula: orders / visits
+
+  aov:
+    formula: gmv / orders
+
+  orders_per_user:
+    formula: orders / unique_users

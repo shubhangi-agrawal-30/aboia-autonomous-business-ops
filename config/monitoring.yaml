@@ -1,0 +1,9 @@
+metrics:
+  - orders
+  - unique_users
+  - gmv
+  - items_sold
+  - aov
+  - orders_per_user
+  - visits
+  - conversion_rate

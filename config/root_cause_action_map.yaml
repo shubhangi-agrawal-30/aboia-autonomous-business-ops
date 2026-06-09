@@ -1,0 +1,53 @@
+traffic:
+  type: "investigation"
+  description: "Investigate traffic sources and ad campaigns"
+  owner: "Marketing Team"
+  synonyms: ["traffic", "ad campaign", "paid search", "referral", "campaign", "promotion", "marketing", "ads"]
+
+visits:
+  type: "investigation"
+  description: "Analyze website visit trends and attribution"
+  owner: "Marketing Team"
+  synonyms: ["visits", "visitor", "session", "pageview", "visitors", "sessions", "pageviews"]
+
+conversion:
+  type: "investigation"
+  description: "Review checkout funnel and recent UI changes"
+  owner: "Product Team"
+  synonyms: ["conversion", "checkout", "funnel", "purchase rate", "cart", "payment", "purchasing", "transaction", "transactions", "conversions"]
+
+latency:
+  type: "automation"
+  description: "Trigger performance diagnostics and scaling check"
+  owner: "Engineering Team"
+  synonyms: ["latency", "slow", "delay", "response time", "lag", "slowdown", "timeout", "timeouts", "latencies"]
+
+outage:
+  type: "incident_response"
+  description: "Investigate platform outage and restore system availability"
+  owner: "SRE Team"
+  synonyms: ["outage", "down", "crash", "collapse", "outages"]
+
+downtime:
+  type: "incident_response"
+  description: "Investigate service downtime and trigger recovery procedures"
+  owner: "SRE Team"
+  synonyms: ["downtime", "downtimes", "unavailability", "offline", "inactive"]
+
+system failure:
+  type: "incident_response"
+  description: "Investigate system failure and restore affected services"
+  owner: "Engineering Team"
+  synonyms: ["system failure", "failure", "error", "exception", "failed", "failures", "errors", "broken"]
+
+technical issue:
+  type: "investigation"
+  description: "Investigate critical technical issue impacting platform performance"
+  owner: "Engineering Team"
+  synonyms: ["technical issue", "technical", "issue", "bug", "fault", "issues", "glitch", "glitches"]
+
+platform:
+  type: "investigation"
+  description: "Investigate platform stability and infrastructure health"
+  owner: "SRE Team"
+  synonyms: ["platform", "infrastructure", "server", "cluster", "host", "platforms", "servers", "database", "db"]

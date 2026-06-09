@@ -14,9 +14,15 @@ data/processed/*
 # Logs
 logs/*
 
+# Debug logs
+debug_output/
+
 # IDE
 .vscode/
 .idea/
+
+# Database
+*.db
 
 # OS
 .DS_Store

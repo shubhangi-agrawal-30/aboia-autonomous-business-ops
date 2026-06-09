@@ -1,0 +1,49 @@
+high:
+  priority: "P0"
+  sla_hours: 4
+  requires_approval: true
+  approval_role: "Business Head"
+
+medium:
+  priority: "P1"
+  sla_hours: 8
+  requires_approval: false
+  approval_role: null
+
+low:
+  priority: "P2"
+  sla_hours: 24
+  requires_approval: false
+  approval_role: null
+
+# -------------------------------------------------------------
+# Anomaly Confidence Scorecard Weights (Dynamic Governance)
+# -------------------------------------------------------------
+confidence_weights:
+  points_per_metric: 15
+  max_metric_points: 45
+  overlap_bonus: 25
+  severity_bonus_high: 20
+  severity_bonus_medium: 10
+
+# -------------------------------------------------------------
+# Governance Override Gates & Validation Thresholds (Dynamic Policy)
+# -------------------------------------------------------------
+override_gates:
+  min_overall_reasoning_score: 50
+  min_metric_grounding_score: 40
+  min_risk_alignment_score: 60
+  max_confidence_gap: 50
+
+validation_scoring:
+  allowed_risk_levels: ["low", "medium", "high"]
+  synonym_grounding_weight: 0.6
+  min_grounding_alert_score: 40
+  narrative_depth_min_words: 12
+  depth_weights:
+    percentage_change: 30
+    baseline_reference: 25
+    date_reference: 15
+    multi_metric_context: 20
+    narrative_depth: 10
+

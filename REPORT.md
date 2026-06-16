@@ -175,7 +175,7 @@ The model is restricted to reasoning only from the provided telemetry summary.
 * **4. Confidence Parity:** Measures the gap between deterministic anomaly confidence and the LLM’s self-reported reasoning confidence.
 
 The final governance score is calculated as:
-$$\textbf{Overall Governance Score} = \lfloor \frac{\text{Grounding} + \text{Depth} + \text{RiskAlignment} + \text{ConfidenceParity}}{4} \rfloor$$
+$$\textbf{Overall Governance Score} = \lfloor \frac{\text{Grounding} + \text{Depth} + \text{Risk Alignment} + \text{Confidence Parity}}{4} \rfloor$$
 
 This score determines whether the resulting action can be executed automatically or must be routed through manual approval.
 
@@ -396,7 +396,7 @@ The system compares two independent confidence signals to detect mismatches betw
 
 * **`anomaly_confidence` (Deterministic, 0–100):** Computed from anomaly severity, metric overlap, and the number of affected KPIs.
 
-  $$\textbf{anomaly\_confidence} = \min(\text{Metric Impact} + \text{Overlap Bonus} + \text{Severity Bonus}, 100)$$
+  $$\textbf{Anomaly Confidence} = \min(\text{Metric Impact} + \text{Overlap Bonus} + \text{Severity Bonus}, 100)$$
   Where:
   *   **Metric Impact:** $\min(N \times 15, 45)$, where $N$ is the number of affected metrics
   *   **Overlap Bonus:** $+25$ for overlapping anomalies

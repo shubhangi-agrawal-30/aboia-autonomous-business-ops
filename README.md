@@ -20,7 +20,7 @@ It combines:
 
 Rather than allowing the LLM to directly control execution, ABOIA separates probabilistic reasoning from deterministic governance. This enables the system to validate, prioritize, and safely route operational actions while preventing unsafe automation caused by unreliable or low-confidence AI reasoning.
 
-The system is demonstrated using the Olist Brazilian E-Commerce Dataset, where raw transactional records are aggregated into daily business KPIs for anomaly detection, reasoning, and operational action simulation.
+The system is demonstrated using the Olist Brazilian E-Commerce Dataset, where raw transactional records are aggregated into daily business KPIs for anomaly detection, reasoning, and operational action simulation. Initial exploratory data analysis on the Olist dataset is available in [data/analysis/](data/analysis/).
 
 ![Consolidated Episode Timeline](assets/main_dashboard.png)
 
@@ -289,7 +289,10 @@ ABOIA/
 │ ├── risk_policy.yaml 
 │ └── root_cause_action_map.yaml 
 │ 
-├── data/ # Raw dataset and generated KPI windows 
+├── data/
+│ ├── raw/ # Raw Olist dataset CSVs
+│ └── analysis/ # Exploratory data analysis notebook (EDA on KPI trends, dataset structure)
+│
 ├── debug_output/ # NDJSON pipeline traces and validation logs 
 ├── logs/ # Application logs 
 ├── .env.example # Environment variable template 
